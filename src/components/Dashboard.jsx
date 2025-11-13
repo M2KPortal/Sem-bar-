@@ -11,7 +11,7 @@ import {
   Menu,
   X,
   Upload,
-  Cloud
+  UserCog
 } from 'lucide-react';
 
 import POSTab from './tabs/POSTab';
@@ -36,8 +36,8 @@ function Dashboard({ currentUser, onLogout }) {
     { name: 'Inventory', path: '/dashboard/inventory', icon: Package, adminOnly: true },
     { name: 'Events', path: '/dashboard/events', icon: Calendar, adminOnly: false },
     { name: 'Reports', path: '/dashboard/reports', icon: FileText, adminOnly: false },
-    { name: 'Users', path: '/dashboard/users', icon: Settings, adminOnly: true },
-    { name: 'Settings', path: '/dashboard/settings', icon: Cloud, adminOnly: false },
+    { name: 'Settings', path: '/dashboard/settings', icon: Settings, adminOnly: false },
+    { name: 'Users', path: '/dashboard/users', icon: UserCog, adminOnly: true },
   ].filter(item => !item.adminOnly || isAdmin);
 
   const handleEndOfShift = async () => {
