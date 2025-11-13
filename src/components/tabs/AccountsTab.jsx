@@ -78,12 +78,8 @@ function AccountsTab({ currentUser }) {
     }
 
     try {
-      // Update account balance
-      await updateAccount(selectedAccount.id, {
-        balance: selectedAccount.balance + amount,
-      });
-
       // Create a transaction record for the fund addition
+      // The addTransaction function will automatically update the account balance
       await addTransaction({
         accountId: selectedAccount.id,
         items: [{ name: 'Funds Added', quantity: 1, price: amount }],
