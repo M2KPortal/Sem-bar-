@@ -178,9 +178,9 @@ export async function refundTransaction(transactionId, refundedBy) {
   await transactionStore.put(transaction);
 
   // Create refund transaction (negative amounts)
+  const { id, refunded: wasRefunded, refundedBy: originalRefundedBy, refundedAt, ...transactionData } = transaction;
   const refundTransaction = {
-    ...transaction,
-    id: undefined, // Let it auto-increment
+    ...transactionData,
     total: -transaction.total,
     refundOf: transactionId,
     bartender: refundedBy,

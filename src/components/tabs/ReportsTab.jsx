@@ -3,6 +3,8 @@ import { Download, Calendar, FileText, TrendingUp, DollarSign } from 'lucide-rea
 import {
   getAllAccounts,
   getTransactionsByDateRange,
+  getAllEvents,
+  getTransactionsByEvent,
 } from '../../utils/db';
 import {
   formatCurrency,
@@ -14,26 +16,39 @@ import {
 function ReportsTab({ currentUser }) {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
   const [dateRange, setDateRange] = useState({
     start: new Date().toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
-  const [reportType, setReportType] = useState('tonight'); // 'tonight' or 'custom'
+  const [reportType, setReportType] = useState('tonight'); // 'tonight', 'custom', or 'event'
   const isAdmin = currentUser?.role === 'admin';
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadData() {
     const accs = await getAllAccounts();
+    const evts = await getAllEvents();
     setAccounts(accs);
+    setEvents(evts);
     await loadTransactions();
   }
 
   async function loadTransactions() {
     let txs;
-    if (reportType === 'tonight') {
+
+    if (reportType === 'event') {
+      // Filter by event
+      if (selectedEventId) {
+        txs = await getTransactionsByEvent(parseInt(selectedEventId));
+      } else {
+        txs = [];
+      }
+    } else if (reportType === 'tonight') {
       const today = new Date().toISOString().split('T')[0];
       const startOfDay = new Date(today + 'T00:00:00').toISOString();
       const endOfDay = new Date(today + 'T23:59:59').toISOString();
@@ -44,8 +59,8 @@ function ReportsTab({ currentUser }) {
       txs = await getTransactionsByDateRange(startOfDay, endOfDay);
     }
 
-    // Filter by bartender for non-admin users
-    if (!isAdmin && currentUser) {
+    // Filter by bartender for non-admin users (except for event reports)
+    if (!isAdmin && currentUser && reportType !== 'event') {
       txs = txs.filter(tx => tx.bartender === currentUser.name);
     }
 
@@ -54,7 +69,8 @@ function ReportsTab({ currentUser }) {
 
   useEffect(() => {
     loadTransactions();
-  }, [reportType, dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportType, dateRange, selectedEventId]);
 
   const handleExportPDF = () => {
     const title = reportType === 'tonight'
@@ -100,7 +116,7 @@ function ReportsTab({ currentUser }) {
       {/* Report Type Selection */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setReportType('tonight')}
               className={`px-4 py-2 rounded-lg transition ${
@@ -121,7 +137,37 @@ function ReportsTab({ currentUser }) {
             >
               Custom Range
             </button>
+            <button
+              onClick={() => setReportType('event')}
+              className={`px-4 py-2 rounded-lg transition ${
+                reportType === 'event'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Event Report
+            </button>
           </div>
+
+          {reportType === 'event' && (
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 mb-1">Select Event</label>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                <option value="">Choose an event...</option>
+                {events
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map(event => (
+                    <option key={event.id} value={event.id}>
+                      {event.name} - {new Date(event.date).toLocaleDateString()} ({event.status})
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {reportType === 'custom' && (
             <div className="flex gap-2 flex-1">
