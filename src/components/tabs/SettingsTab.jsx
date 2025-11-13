@@ -327,27 +327,29 @@ function SettingsTab({ currentUser }) {
         )}
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Start New Event</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newEventName}
-                onChange={(e) => setNewEventName(e.target.value)}
-                placeholder="Event name (e.g., Alumni Gathering)"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                onKeyPress={(e) => e.key === 'Enter' && handleStartEvent()}
-              />
-              <button
-                onClick={handleStartEvent}
-                disabled={!newEventName.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Play className="w-4 h-4" />
-                Start Event
-              </button>
+          {isAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Start New Event</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newEventName}
+                  onChange={(e) => setNewEventName(e.target.value)}
+                  placeholder="Event name (e.g., Alumni Gathering)"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  onKeyPress={(e) => e.key === 'Enter' && handleStartEvent()}
+                />
+                <button
+                  onClick={handleStartEvent}
+                  disabled={!newEventName.trim()}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Play className="w-4 h-4" />
+                  Start Event
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {events.filter(e => e.status === 'completed').length > 0 && (
             <div>

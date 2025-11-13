@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, Eye, X, Download, RotateCcw, Search, Edit } from 'lucide-react';
+import { Plus, DollarSign, Eye, X, Download, RotateCcw, Search, Edit, Clock } from 'lucide-react';
 import {
   getAllAccounts,
   addAccount,
   updateAccount,
   deleteAccount,
   getTransactionsByAccount,
+  getAllTransactions,
   refundTransaction,
 } from '../../utils/db';
 import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAccountStatementToExcel } from '../../utils/exports';
 
 function AccountsTab({ currentUser }) {
   const [accounts, setAccounts] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -26,11 +28,21 @@ function AccountsTab({ currentUser }) {
 
   useEffect(() => {
     loadAccounts();
+    loadRecentTransactions();
   }, []);
 
   async function loadAccounts() {
     const accs = await getAllAccounts();
     setAccounts(accs);
+  }
+
+  async function loadRecentTransactions() {
+    const allTxs = await getAllTransactions();
+    // Get last 10 transactions, sorted by date
+    const recent = allTxs
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+    setRecentTransactions(recent);
   }
 
   const handleAddAccount = async (e) => {
@@ -109,7 +121,7 @@ function AccountsTab({ currentUser }) {
     );
   };
 
-  const handleRefund = async (transactionId) => {
+  const handleRefund = async (transactionId, fromRecent = false) => {
     if (!window.confirm('Are you sure you want to refund this transaction? This will restore the account balance and inventory.')) {
       return;
     }
@@ -120,13 +132,18 @@ function AccountsTab({ currentUser }) {
 
       // Reload data
       await loadAccounts();
-      const txs = await getTransactionsByAccount(selectedAccount.id);
-      setAccountTransactions(txs);
+      await loadRecentTransactions();
 
-      // Update selected account
-      const updatedAccounts = await getAllAccounts();
-      const updated = updatedAccounts.find(a => a.id === selectedAccount.id);
-      setSelectedAccount(updated);
+      // If viewing account details, update those too
+      if (selectedAccount && !fromRecent) {
+        const txs = await getTransactionsByAccount(selectedAccount.id);
+        setAccountTransactions(txs);
+
+        // Update selected account
+        const updatedAccounts = await getAllAccounts();
+        const updated = updatedAccounts.find(a => a.id === selectedAccount.id);
+        setSelectedAccount(updated);
+      }
     } catch (error) {
       alert('Failed to refund transaction: ' + error.message);
       console.error(error);
@@ -192,6 +209,55 @@ function AccountsTab({ currentUser }) {
         )}
       </div>
       </div>
+
+      {/* Recent Transactions */}
+      {recentTransactions.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+          </div>
+          <div className="space-y-2">
+            {recentTransactions.map(tx => {
+              const account = accounts.find(a => a.id === tx.accountId);
+              return (
+                <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {account?.name || (tx.eventId ? 'Event Purchase' : 'Unknown')}
+                      </span>
+                      {tx.refunded && (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">Refunded</span>
+                      )}
+                      {tx.refundOf && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">Refund</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formatDateTime(tx.date)} • {tx.bartender} • {tx.items?.map(item => `${item.name} (×${item.quantity})`).join(', ')}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-lg font-semibold ${tx.total < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                      {tx.total < 0 ? '+' : ''}{formatCurrency(Math.abs(tx.total))}
+                    </span>
+                    {!tx.refunded && !tx.refundOf && (
+                      <button
+                        onClick={() => handleRefund(tx.id, true)}
+                        className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg transition"
+                        title="Refund transaction"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {searchTerm && filteredAccounts.length === 0 && (
         <div className="text-center py-12 text-gray-500">
