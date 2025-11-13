@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Seminary Bar POS System for Mount Saint Mary's",
   "private": true,
-  "homepage": ".",
+  "homepage": "/Sem-bar-",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
