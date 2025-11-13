@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Upload, Download, Cloud, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Save, Upload, Download, Cloud, CheckCircle, XCircle, AlertTriangle, Play, Square, Calendar } from 'lucide-react';
 import {
   getSetting,
   setSetting,
   exportAllData,
   importAllData,
+  getAllEvents,
+  getActiveEvent,
+  addEvent,
+  updateEvent,
 } from '../../utils/db';
 import { downloadJSON, readJSONFile } from '../../utils/exports';
 import { saveToGitHub, loadFromGitHub, verifyGitHubAccess, parseGitHubUrl } from '../../utils/githubSync';
@@ -18,12 +22,26 @@ function SettingsTab({ currentUser }) {
   const [syncStatus, setSyncStatus] = useState(null); // 'success', 'error', 'verifying'
   const [syncMessage, setSyncMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [newEventName, setNewEventName] = useState('');
 
   const isAdmin = currentUser.role === 'admin';
 
   useEffect(() => {
+    loadEvents();
+  }, []);
+
+  useEffect(() => {
     loadSettings();
   }, []);
+
+  async function loadEvents() {
+    const allEvents = await getAllEvents();
+    const active = await getActiveEvent();
+    setEvents(allEvents);
+    setActiveEvent(active);
+  }
 
   async function loadSettings() {
     const token = await getSetting('githubToken');
@@ -203,9 +221,163 @@ function SettingsTab({ currentUser }) {
     event.target.value = '';
   };
 
+  const handleStartEvent = async () => {
+    if (!newEventName.trim()) {
+      alert('Please enter an event name');
+      return;
+    }
+
+    try {
+      // End any active event first
+      if (activeEvent) {
+        await updateEvent(activeEvent.id, { status: 'completed' });
+      }
+
+      // Create new event
+      await addEvent({
+        name: newEventName,
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+      });
+
+      setNewEventName('');
+      await loadEvents();
+      alert(`Event "${newEventName}" started successfully!`);
+    } catch (error) {
+      alert('Failed to start event: ' + error.message);
+      console.error(error);
+    }
+  };
+
+  const handleEndEvent = async () => {
+    if (!activeEvent) {
+      alert('No active event to end');
+      return;
+    }
+
+    if (!window.confirm(`End event "${activeEvent.name}"?`)) {
+      return;
+    }
+
+    try {
+      await updateEvent(activeEvent.id, { status: 'completed' });
+      await loadEvents();
+      alert('Event ended successfully!');
+    } catch (error) {
+      alert('Failed to end event: ' + error.message);
+      console.error(error);
+    }
+  };
+
+  const handleActivateEvent = async (eventId, eventName) => {
+    if (!window.confirm(`Activate event "${eventName}"? This will end any currently active event.`)) {
+      return;
+    }
+
+    try {
+      // End any active event first
+      if (activeEvent) {
+        await updateEvent(activeEvent.id, { status: 'completed' });
+      }
+
+      // Activate selected event
+      await updateEvent(eventId, { status: 'active' });
+      await loadEvents();
+      alert(`Event "${eventName}" activated successfully!`);
+    } catch (error) {
+      alert('Failed to activate event: ' + error.message);
+      console.error(error);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
+
+      {/* Quick Event Management */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-6 h-6 text-primary-600" />
+          <h3 className="text-xl font-semibold text-gray-900">Event Management</h3>
+        </div>
+
+        {activeEvent ? (
+          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Play className="w-5 h-5 text-green-600" />
+                  <span className="font-semibold text-green-900">Active Event: {activeEvent.name}</span>
+                </div>
+                <div className="text-sm text-green-700">All POS purchases are being charged to this event</div>
+              </div>
+              <button
+                onClick={handleEndEvent}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm"
+              >
+                <Square className="w-4 h-4" />
+                End Event
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4 mb-4 text-center text-gray-600">
+            No active event. Start a new event or activate an existing one below.
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start New Event</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newEventName}
+                onChange={(e) => setNewEventName(e.target.value)}
+                placeholder="Event name (e.g., Alumni Gathering)"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                onKeyPress={(e) => e.key === 'Enter' && handleStartEvent()}
+              />
+              <button
+                onClick={handleStartEvent}
+                disabled={!newEventName.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Play className="w-4 h-4" />
+                Start Event
+              </button>
+            </div>
+          </div>
+
+          {events.filter(e => e.status === 'completed').length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Or Reactivate Previous Event</label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {events
+                  .filter(e => e.status === 'completed')
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .slice(0, 5)
+                  .map(event => (
+                    <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-gray-900">{event.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(event.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleActivateEvent(event.id, event.name)}
+                        className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm transition"
+                      >
+                        Activate
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* GitHub Cloud Sync */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
