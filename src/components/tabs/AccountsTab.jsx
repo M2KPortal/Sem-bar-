@@ -8,6 +8,7 @@ import {
   getTransactionsByAccount,
   getAllTransactions,
   refundTransaction,
+  addTransaction,
 } from '../../utils/db';
 import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAccountStatementToExcel } from '../../utils/exports';
 
@@ -77,10 +78,23 @@ function AccountsTab({ currentUser }) {
     }
 
     try {
+      // Update account balance
       await updateAccount(selectedAccount.id, {
         balance: selectedAccount.balance + amount,
       });
+
+      // Create a transaction record for the fund addition
+      await addTransaction({
+        accountId: selectedAccount.id,
+        items: [{ name: 'Funds Added', quantity: 1, price: amount }],
+        total: -amount, // Negative because it's a credit to the account
+        bartender: currentUser.name,
+        date: new Date().toISOString(),
+        fundAddition: true, // Flag to identify this as a fund addition
+      });
+
       await loadAccounts();
+      await loadRecentTransactions();
       setShowAddFundsModal(false);
       setFundAmount('');
 
@@ -88,6 +102,8 @@ function AccountsTab({ currentUser }) {
       const updatedAccount = await getAllAccounts();
       const updated = updatedAccount.find(a => a.id === selectedAccount.id);
       setSelectedAccount(updated);
+
+      alert('Funds added successfully!');
     } catch (error) {
       alert('Failed to add funds');
       console.error(error);

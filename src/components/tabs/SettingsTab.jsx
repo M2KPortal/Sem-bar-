@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Upload, Download, Cloud, CheckCircle, XCircle, AlertTriangle, Play, Square, Calendar } from 'lucide-react';
+import { Save, Upload, Download, Cloud, CheckCircle, XCircle, AlertTriangle, Play, Square, Calendar, RefreshCw } from 'lucide-react';
 import {
   getSetting,
   setSetting,
@@ -9,6 +9,7 @@ import {
   getActiveEvent,
   addEvent,
   updateEvent,
+  clearAllData,
 } from '../../utils/db';
 import { downloadJSON, readJSONFile } from '../../utils/exports';
 import { saveToGitHub, loadFromGitHub, verifyGitHubAccess, parseGitHubUrl } from '../../utils/githubSync';
@@ -287,6 +288,39 @@ function SettingsTab({ currentUser }) {
     } catch (error) {
       alert('Failed to activate event: ' + error.message);
       console.error(error);
+    }
+  };
+
+  const handleResetData = async () => {
+    const confirmation = window.prompt(
+      'WARNING: This will delete ALL data including accounts, transactions, inventory, events, and users, then reinitialize with sample data.\n\n' +
+      'This action CANNOT be undone!\n\n' +
+      'Type "RESET" (all caps) to confirm:'
+    );
+
+    if (confirmation !== 'RESET') {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSyncStatus('verifying');
+      setSyncMessage('Resetting all data...');
+
+      await clearAllData();
+
+      setSyncStatus('success');
+      setSyncMessage('Data reset successfully! Reloading page...');
+
+      // Reload page after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      setSyncStatus('error');
+      setSyncMessage('Failed to reset data: ' + error.message);
+      console.error(error);
+      setLoading(false);
     }
   };
 
@@ -583,6 +617,26 @@ function SettingsTab({ currentUser }) {
             <Save className="w-4 h-4" />
             Save Settings
           </button>
+
+          {isAdmin && (
+            <div className="pt-6 mt-6 border-t border-gray-200">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-red-900 mb-2">Danger Zone</h4>
+                <p className="text-sm text-red-700 mb-3">
+                  Reset all data and start fresh. This will delete ALL accounts, transactions, inventory, events, and users,
+                  then reinitialize with sample data.
+                </p>
+                <button
+                  onClick={handleResetData}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Reset All Data
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
