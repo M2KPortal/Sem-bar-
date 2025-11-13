@@ -408,11 +408,30 @@ export async function initializeSampleData() {
 
   // Add sample diocese accounts
   const dioceses = [
-    { name: 'Archdiocese of Baltimore', type: 'diocese', balance: 500 },
-    { name: 'Diocese of Washington DC', type: 'diocese', balance: 450 },
-    { name: 'Diocese of Hartford', type: 'diocese', balance: 300 },
-    { name: 'Archdiocese of Oklahoma City', type: 'diocese', balance: 250 },
-    { name: 'Diocese of Fall River', type: 'diocese', balance: 400 },
+    { name: 'Diocese of Arlington', type: 'diocese', balance: 0 },
+    { name: 'Archdiocese of Baltimore', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Burlington', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Colorado Springs', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Fargo', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Ft.Wayne-South Bend', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Harrisburg', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Lafayette', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Lincoln', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Norwich', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Ogdensburg', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Paterson', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Peoria', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Portland', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Richmond', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Savannah', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Syracuse', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Trenton', type: 'diocese', balance: 0 },
+    { name: 'Archdiocese of Washington', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Wheeling-Charleston', type: 'diocese', balance: 0 },
+    { name: 'Diocese of Worcester', type: 'diocese', balance: 0 },
+    { name: 'Archdiocese for Military Services', type: 'diocese', balance: 0 },
+    { name: 'Pittsburgh Oratory of St. Philip Neri', type: 'diocese', balance: 0 },
+    { name: 'Youth Apostles Institute', type: 'diocese', balance: 0 },
   ];
 
   for (const diocese of dioceses) {
@@ -480,4 +499,20 @@ export async function clearAllData() {
 
   // Reinitialize with sample data
   await initializeSampleData();
+}
+
+// Zero out all account balances (keeps accounts, just sets balance to 0)
+export async function zeroOutAllAccountBalances() {
+  const db = await getDB();
+  const tx = db.transaction('accounts', 'readwrite');
+  const store = tx.objectStore('accounts');
+
+  const accounts = await store.getAll();
+
+  for (const account of accounts) {
+    account.balance = 0;
+    await store.put(account);
+  }
+
+  await tx.done;
 }

@@ -9,6 +9,7 @@ import {
   getAllTransactions,
   refundTransaction,
   addTransaction,
+  zeroOutAllAccountBalances,
 } from '../../utils/db';
 import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAccountStatementToExcel } from '../../utils/exports';
 
@@ -78,12 +79,8 @@ function AccountsTab({ currentUser }) {
     }
 
     try {
-      // Update account balance
-      await updateAccount(selectedAccount.id, {
-        balance: selectedAccount.balance + amount,
-      });
-
       // Create a transaction record for the fund addition
+      // The addTransaction function will automatically update the account balance
       await addTransaction({
         accountId: selectedAccount.id,
         items: [{ name: 'Funds Added', quantity: 1, price: amount }],
@@ -194,6 +191,27 @@ function AccountsTab({ currentUser }) {
     }
   };
 
+  const handleZeroOutAllBalances = async () => {
+    const confirmation = window.prompt(
+      'WARNING: This will set ALL account balances to $0.00!\n\n' +
+      'This action cannot be undone.\n\n' +
+      'Type "ZERO" (all caps) to confirm:'
+    );
+
+    if (confirmation !== 'ZERO') {
+      return;
+    }
+
+    try {
+      await zeroOutAllAccountBalances();
+      await loadAccounts();
+      alert('All account balances have been zeroed out.');
+    } catch (error) {
+      alert('Failed to zero out balances: ' + error.message);
+      console.error(error);
+    }
+  };
+
   // Filter accounts based on search term
   const filteredAccounts = accounts.filter(account =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -215,13 +233,23 @@ function AccountsTab({ currentUser }) {
             />
           </div>
         {isAdmin && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition"
-          >
-            <Plus className="w-5 h-5" />
-            Add Account
-          </button>
+          <>
+            <button
+              onClick={handleZeroOutAllBalances}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+              title="Reset all account balances to $0.00"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Zero Out All
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition"
+            >
+              <Plus className="w-5 h-5" />
+              Add Account
+            </button>
+          </>
         )}
       </div>
       </div>
