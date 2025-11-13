@@ -464,3 +464,20 @@ export async function initializeSampleData() {
   await setSetting('lowBalanceThreshold', 20);
   await setSetting('currency', 'USD');
 }
+
+// Clear all data and reinitialize
+export async function clearAllData() {
+  const db = await getDB();
+
+  // Clear all object stores
+  const storeNames = ['accounts', 'transactions', 'inventory', 'events', 'users', 'settings'];
+
+  for (const storeName of storeNames) {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    await store.clear();
+  }
+
+  // Reinitialize with sample data
+  await initializeSampleData();
+}
