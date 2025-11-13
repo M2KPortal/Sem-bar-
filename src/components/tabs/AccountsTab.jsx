@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, Eye, X, Download, RotateCcw } from 'lucide-react';
+import { Plus, DollarSign, Eye, X, Download, RotateCcw, Search, Edit } from 'lucide-react';
 import {
   getAllAccounts,
   addAccount,
@@ -12,12 +12,15 @@ import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAcco
 
 function AccountsTab({ currentUser }) {
   const [accounts, setAccounts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [accountTransactions, setAccountTransactions] = useState([]);
   const [newAccount, setNewAccount] = useState({ name: '', balance: 0, type: 'diocese' });
+  const [editAccount, setEditAccount] = useState({ name: '', type: '' });
   const [fundAmount, setFundAmount] = useState('');
   const isAdmin = currentUser.role === 'admin';
 
@@ -130,10 +133,54 @@ function AccountsTab({ currentUser }) {
     }
   };
 
+  const handleOpenEditModal = (account) => {
+    setSelectedAccount(account);
+    setEditAccount({ name: account.name, type: account.type });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditAccount = async (e) => {
+    e.preventDefault();
+
+    if (!editAccount.name.trim()) {
+      alert('Account name cannot be empty');
+      return;
+    }
+
+    try {
+      await updateAccount(selectedAccount.id, {
+        name: editAccount.name,
+        type: editAccount.type,
+      });
+      await loadAccounts();
+      setShowEditModal(false);
+      alert('Account updated successfully!');
+    } catch (error) {
+      alert('Failed to update account. Account name may already exist.');
+      console.error(error);
+    }
+  };
+
+  // Filter accounts based on search term
+  const filteredAccounts = accounts.filter(account =>
+    account.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Accounts</h2>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search accounts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
         {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}
@@ -144,9 +191,16 @@ function AccountsTab({ currentUser }) {
           </button>
         )}
       </div>
+      </div>
+
+      {searchTerm && filteredAccounts.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          No accounts found matching "{searchTerm}"
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {accounts.map(account => (
+        {filteredAccounts.map(account => (
           <div key={account.id} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
@@ -177,13 +231,24 @@ function AccountsTab({ currentUser }) {
                 <Eye className="w-4 h-4" />
                 View
               </button>
-              {isAdmin && account.name !== 'Cash Customer' && (
-                <button
-                  onClick={() => handleDeleteAccount(account.id, account.name)}
-                  className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition text-sm"
-                >
-                  Delete
-                </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => handleOpenEditModal(account)}
+                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition text-sm"
+                    title="Edit account"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  {account.name !== 'Cash Customer' && (
+                    <button
+                      onClick={() => handleDeleteAccount(account.id, account.name)}
+                      className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition text-sm"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -430,6 +495,72 @@ function AccountsTab({ currentUser }) {
                   className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
                 >
                   Add Funds
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {showEditModal && selectedAccount && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Edit Account</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditAccount} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Account Name
+                </label>
+                <input
+                  type="text"
+                  value={editAccount.name}
+                  onChange={(e) => setEditAccount({ ...editAccount, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Account Type
+                </label>
+                <select
+                  value={editAccount.type}
+                  onChange={(e) => setEditAccount({ ...editAccount, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="diocese">Diocese</option>
+                  <option value="cash">Cash Customer</option>
+                </select>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  Note: Changing the account type or name will not affect existing transactions or the account balance.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
