@@ -160,6 +160,62 @@ export async function addTransaction(transaction) {
   return txId;
 }
 
+export async function refundTransaction(transactionId, refundedBy) {
+  const db = await getDB();
+  const transaction = await db.get('transactions', transactionId);
+
+  if (!transaction) {
+    throw new Error('Transaction not found');
+  }
+
+  const tx = db.transaction(['transactions', 'accounts', 'inventory'], 'readwrite');
+
+  // Mark original transaction as refunded
+  const transactionStore = tx.objectStore('transactions');
+  transaction.refunded = true;
+  transaction.refundedBy = refundedBy;
+  transaction.refundedAt = new Date().toISOString();
+  await transactionStore.put(transaction);
+
+  // Create refund transaction (negative amounts)
+  const refundTransaction = {
+    ...transaction,
+    id: undefined, // Let it auto-increment
+    total: -transaction.total,
+    refundOf: transactionId,
+    bartender: refundedBy,
+    date: new Date().toISOString(),
+    refunded: false,
+  };
+  await transactionStore.add(refundTransaction);
+
+  // Restore account balance
+  if (transaction.accountId) {
+    const accountStore = tx.objectStore('accounts');
+    const account = await accountStore.get(transaction.accountId);
+    if (account) {
+      account.balance += transaction.total;
+      await accountStore.put(account);
+    }
+  }
+
+  // Restore inventory quantities
+  if (transaction.items && Array.isArray(transaction.items)) {
+    const inventoryStore = tx.objectStore('inventory');
+    for (const item of transaction.items) {
+      if (item.inventoryId) {
+        const invItem = await inventoryStore.get(item.inventoryId);
+        if (invItem && invItem.trackInventory && invItem.quantity !== null) {
+          invItem.quantity += item.quantity;
+          await inventoryStore.put(invItem);
+        }
+      }
+    }
+  }
+
+  await tx.done;
+}
+
 // ============ INVENTORY ============
 export async function getAllInventory() {
   const db = await getDB();
