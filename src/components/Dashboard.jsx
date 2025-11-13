@@ -9,7 +9,9 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Upload,
+  Cloud
 } from 'lucide-react';
 
 import POSTab from './tabs/POSTab';
@@ -18,10 +20,14 @@ import InventoryTab from './tabs/InventoryTab';
 import EventsTab from './tabs/EventsTab';
 import ReportsTab from './tabs/ReportsTab';
 import UserManagementTab from './tabs/UserManagementTab';
+import SettingsTab from './tabs/SettingsTab';
+import { getSetting, exportAllData } from '../utils/db';
+import { saveToGitHub, parseGitHubUrl } from '../utils/githubSync';
 
 function Dashboard({ currentUser, onLogout }) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [savingToCloud, setSavingToCloud] = useState(false);
   const isAdmin = currentUser.role === 'admin';
 
   const navigation = [
@@ -31,7 +37,56 @@ function Dashboard({ currentUser, onLogout }) {
     { name: 'Events', path: '/dashboard/events', icon: Calendar, adminOnly: false },
     { name: 'Reports', path: '/dashboard/reports', icon: FileText, adminOnly: false },
     { name: 'Users', path: '/dashboard/users', icon: Settings, adminOnly: true },
+    { name: 'Settings', path: '/dashboard/settings', icon: Cloud, adminOnly: false },
   ].filter(item => !item.adminOnly || isAdmin);
+
+  const handleEndOfShift = async () => {
+    const confirmMsg = 'Save all data to GitHub and end your shift?';
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setSavingToCloud(true);
+
+    try {
+      // Get GitHub settings
+      const token = await getSetting('githubToken');
+      const repo = await getSetting('githubRepo');
+      const path = await getSetting('githubPath');
+
+      if (!token || !repo) {
+        alert('GitHub sync not configured. Please configure in Settings first.');
+        setSavingToCloud(false);
+        return;
+      }
+
+      const parsed = parseGitHubUrl(repo.value);
+      if (!parsed) {
+        throw new Error('Invalid GitHub repository configuration');
+      }
+
+      // Export all data
+      const data = await exportAllData();
+
+      // Save to GitHub
+      const commitMessage = `End of shift backup - ${new Date().toLocaleString()} by ${currentUser.name}`;
+      await saveToGitHub(
+        token.value,
+        parsed.owner,
+        parsed.repo,
+        path?.value || 'pos-data.json',
+        data,
+        commitMessage
+      );
+
+      alert('Data saved to GitHub successfully! You can now safely logout.');
+    } catch (error) {
+      alert('Failed to save to GitHub: ' + error.message);
+      console.error(error);
+    } finally {
+      setSavingToCloud(false);
+    }
+  };
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
@@ -55,7 +110,16 @@ function Dashboard({ currentUser, onLogout }) {
               <h1 className="text-xl font-bold text-gray-900">Seminary Bar POS</h1>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button
+                onClick={handleEndOfShift}
+                disabled={savingToCloud}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
+                title="Save data to cloud and end shift"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">{savingToCloud ? 'Saving...' : 'End Shift'}</span>
+              </button>
               <div className="text-right">
                 <div className="text-sm font-medium text-gray-900">{currentUser.name}</div>
                 <div className="text-xs text-gray-500">
@@ -126,6 +190,7 @@ function Dashboard({ currentUser, onLogout }) {
             <Route path="/events" element={<EventsTab currentUser={currentUser} />} />
             <Route path="/reports" element={<ReportsTab currentUser={currentUser} />} />
             {isAdmin && <Route path="/users" element={<UserManagementTab />} />}
+            <Route path="/settings" element={<SettingsTab currentUser={currentUser} />} />
           </Routes>
         </main>
       </div>
