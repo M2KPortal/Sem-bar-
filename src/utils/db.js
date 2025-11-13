@@ -534,3 +534,50 @@ export async function zeroOutAllInventory() {
 
   await tx.done;
 }
+
+// Add missing diocese accounts (won't duplicate existing ones)
+export async function addMissingDioceses() {
+  const allDioceses = [
+    'Diocese of Arlington',
+    'Archdiocese of Baltimore',
+    'Diocese of Burlington',
+    'Diocese of Colorado Springs',
+    'Diocese of Fargo',
+    'Diocese of Ft.Wayne-South Bend',
+    'Diocese of Harrisburg',
+    'Diocese of Lafayette',
+    'Diocese of Lincoln',
+    'Diocese of Norwich',
+    'Diocese of Ogdensburg',
+    'Diocese of Paterson',
+    'Diocese of Peoria',
+    'Diocese of Portland',
+    'Diocese of Richmond',
+    'Diocese of Savannah',
+    'Diocese of Syracuse',
+    'Diocese of Trenton',
+    'Archdiocese of Washington',
+    'Diocese of Wheeling-Charleston',
+    'Diocese of Worcester',
+    'Archdiocese for Military Services',
+    'Pittsburgh Oratory of St. Philip Neri',
+    'Youth Apostles Institute',
+  ];
+
+  const existingAccounts = await getAllAccounts();
+  const existingNames = new Set(existingAccounts.map(acc => acc.name));
+
+  let addedCount = 0;
+  for (const dioceseName of allDioceses) {
+    if (!existingNames.has(dioceseName)) {
+      try {
+        await addAccount({ name: dioceseName, type: 'diocese', balance: 0 });
+        addedCount++;
+      } catch (error) {
+        console.error(`Failed to add ${dioceseName}:`, error);
+      }
+    }
+  }
+
+  return addedCount;
+}

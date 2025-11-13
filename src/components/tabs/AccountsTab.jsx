@@ -10,6 +10,7 @@ import {
   refundTransaction,
   addTransaction,
   zeroOutAllAccountBalances,
+  addMissingDioceses,
 } from '../../utils/db';
 import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAccountStatementToExcel } from '../../utils/exports';
 
@@ -212,6 +213,21 @@ function AccountsTab({ currentUser }) {
     }
   };
 
+  const handleAddMissingDioceses = async () => {
+    try {
+      const addedCount = await addMissingDioceses();
+      await loadAccounts();
+      if (addedCount > 0) {
+        alert(`Successfully added ${addedCount} missing diocese account(s).`);
+      } else {
+        alert('All diocese accounts are already present.');
+      }
+    } catch (error) {
+      alert('Failed to add dioceses: ' + error.message);
+      console.error(error);
+    }
+  };
+
   // Filter accounts based on search term
   const filteredAccounts = accounts.filter(account =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -234,6 +250,14 @@ function AccountsTab({ currentUser }) {
           </div>
         {isAdmin && (
           <>
+            <button
+              onClick={handleAddMissingDioceses}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"
+              title="Add any missing diocese accounts"
+            >
+              <Plus className="w-5 h-5" />
+              Add Dioceses
+            </button>
             <button
               onClick={handleZeroOutAllBalances}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
