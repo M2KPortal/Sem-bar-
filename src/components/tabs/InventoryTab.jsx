@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Package, AlertTriangle, RotateCcw } from 'lucide-react';
 import {
   getAllInventory,
   addInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
+  zeroOutAllInventory,
 } from '../../utils/db';
 import { formatCurrency } from '../../utils/exports';
 
@@ -105,19 +106,50 @@ function InventoryTab() {
     setShowEditModal(true);
   };
 
+  const handleZeroOutInventory = async () => {
+    const confirmation = window.prompt(
+      'WARNING: This will set ALL inventory quantities to 0!\n\n' +
+      'This action cannot be undone.\n\n' +
+      'Type "ZERO" (all caps) to confirm:'
+    );
+
+    if (confirmation !== 'ZERO') {
+      return;
+    }
+
+    try {
+      await zeroOutAllInventory();
+      await loadInventory();
+      alert('All inventory quantities have been zeroed out.');
+    } catch (error) {
+      alert('Failed to zero out inventory: ' + error.message);
+      console.error(error);
+    }
+  };
+
   const categories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
 
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Inventory Management</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition"
-        >
-          <Plus className="w-5 h-5" />
-          Add Item
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleZeroOutInventory}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+            title="Reset all inventory quantities to 0"
+          >
+            <RotateCcw className="w-5 h-5" />
+            Zero Out All
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition"
+          >
+            <Plus className="w-5 h-5" />
+            Add Item
+          </button>
+        </div>
       </div>
 
       {/* Inventory Summary */}

@@ -516,3 +516,21 @@ export async function zeroOutAllAccountBalances() {
 
   await tx.done;
 }
+
+// Zero out all inventory quantities (keeps items, just sets quantities to 0)
+export async function zeroOutAllInventory() {
+  const db = await getDB();
+  const tx = db.transaction('inventory', 'readwrite');
+  const store = tx.objectStore('inventory');
+
+  const items = await store.getAll();
+
+  for (const item of items) {
+    if (item.trackInventory && item.quantity !== null) {
+      item.quantity = 0;
+      await store.put(item);
+    }
+  }
+
+  await tx.done;
+}
