@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, Eye, X, Download } from 'lucide-react';
+import { Plus, DollarSign, Eye, X, Download, RotateCcw } from 'lucide-react';
 import {
   getAllAccounts,
   addAccount,
   updateAccount,
   deleteAccount,
   getTransactionsByAccount,
+  refundTransaction,
 } from '../../utils/db';
 import { formatCurrency, formatDateTime, exportAccountStatementToPDF, exportAccountStatementToExcel } from '../../utils/exports';
 
@@ -103,6 +104,30 @@ function AccountsTab({ currentUser }) {
       accountTransactions,
       `${selectedAccount.name}_statement.xlsx`
     );
+  };
+
+  const handleRefund = async (transactionId) => {
+    if (!window.confirm('Are you sure you want to refund this transaction? This will restore the account balance and inventory.')) {
+      return;
+    }
+
+    try {
+      await refundTransaction(transactionId, currentUser.name);
+      alert('Transaction refunded successfully');
+
+      // Reload data
+      await loadAccounts();
+      const txs = await getTransactionsByAccount(selectedAccount.id);
+      setAccountTransactions(txs);
+
+      // Update selected account
+      const updatedAccounts = await getAllAccounts();
+      const updated = updatedAccounts.find(a => a.id === selectedAccount.id);
+      setSelectedAccount(updated);
+    } catch (error) {
+      alert('Failed to refund transaction: ' + error.message);
+      console.error(error);
+    }
   };
 
   return (
@@ -278,15 +303,13 @@ function AccountsTab({ currentUser }) {
                     <Download className="w-4 h-4" />
                     Excel
                   </button>
-                  {isAdmin && (
-                    <button
-                      onClick={() => setShowAddFundsModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition text-sm"
-                    >
-                      <DollarSign className="w-4 h-4" />
-                      Add Funds
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowAddFundsModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition text-sm"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Add Funds
+                  </button>
                 </div>
               </div>
             </div>
@@ -307,9 +330,32 @@ function AccountsTab({ currentUser }) {
                     .map(tx => (
                       <div key={tx.id} className="bg-gray-50 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <div className="text-sm text-gray-600">{formatDateTime(tx.date)}</div>
-                          <div className="text-lg font-semibold text-red-600">
-                            -{formatCurrency(tx.total)}
+                          <div>
+                            <div className="text-sm text-gray-600">{formatDateTime(tx.date)}</div>
+                            {tx.refunded && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">
+                                Refunded
+                              </span>
+                            )}
+                            {tx.refundOf && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
+                                Refund
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`text-lg font-semibold ${tx.total < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {tx.total < 0 ? '+' : '-'}{formatCurrency(Math.abs(tx.total))}
+                            </div>
+                            {!tx.refunded && !tx.refundOf && (
+                              <button
+                                onClick={() => handleRefund(tx.id)}
+                                className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg transition"
+                                title="Refund transaction"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="text-sm text-gray-700">

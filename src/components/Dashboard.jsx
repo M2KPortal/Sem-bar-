@@ -28,8 +28,8 @@ function Dashboard({ currentUser, onLogout }) {
     { name: 'POS', path: '/dashboard/pos', icon: ShoppingCart, adminOnly: false },
     { name: 'Accounts', path: '/dashboard/accounts', icon: Users, adminOnly: false },
     { name: 'Inventory', path: '/dashboard/inventory', icon: Package, adminOnly: true },
-    { name: 'Events', path: '/dashboard/events', icon: Calendar, adminOnly: true },
-    { name: 'Reports', path: '/dashboard/reports', icon: FileText, adminOnly: true },
+    { name: 'Events', path: '/dashboard/events', icon: Calendar, adminOnly: false },
+    { name: 'Reports', path: '/dashboard/reports', icon: FileText, adminOnly: false },
     { name: 'Users', path: '/dashboard/users', icon: Settings, adminOnly: true },
   ].filter(item => !item.adminOnly || isAdmin);
 
@@ -123,8 +123,8 @@ function Dashboard({ currentUser, onLogout }) {
             <Route path="/pos" element={<POSTab currentUser={currentUser} />} />
             <Route path="/accounts" element={<AccountsTab currentUser={currentUser} />} />
             {isAdmin && <Route path="/inventory" element={<InventoryTab />} />}
-            {isAdmin && <Route path="/events" element={<EventsTab currentUser={currentUser} />} />}
-            {isAdmin && <Route path="/reports" element={<ReportsTab />} />}
+            <Route path="/events" element={<EventsTab currentUser={currentUser} />} />
+            <Route path="/reports" element={<ReportsTab currentUser={currentUser} />} />
             {isAdmin && <Route path="/users" element={<UserManagementTab />} />}
           </Routes>
         </main>

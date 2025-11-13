@@ -11,7 +11,7 @@ import {
   exportTransactionsToExcel,
 } from '../../utils/exports';
 
-function ReportsTab() {
+function ReportsTab({ currentUser }) {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [dateRange, setDateRange] = useState({
@@ -19,6 +19,7 @@ function ReportsTab() {
     end: new Date().toISOString().split('T')[0],
   });
   const [reportType, setReportType] = useState('tonight'); // 'tonight' or 'custom'
+  const isAdmin = currentUser?.role === 'admin';
 
   useEffect(() => {
     loadData();
@@ -31,18 +32,24 @@ function ReportsTab() {
   }
 
   async function loadTransactions() {
+    let txs;
     if (reportType === 'tonight') {
       const today = new Date().toISOString().split('T')[0];
       const startOfDay = new Date(today + 'T00:00:00').toISOString();
       const endOfDay = new Date(today + 'T23:59:59').toISOString();
-      const txs = await getTransactionsByDateRange(startOfDay, endOfDay);
-      setTransactions(txs);
+      txs = await getTransactionsByDateRange(startOfDay, endOfDay);
     } else {
       const startOfDay = new Date(dateRange.start + 'T00:00:00').toISOString();
       const endOfDay = new Date(dateRange.end + 'T23:59:59').toISOString();
-      const txs = await getTransactionsByDateRange(startOfDay, endOfDay);
-      setTransactions(txs);
+      txs = await getTransactionsByDateRange(startOfDay, endOfDay);
     }
+
+    // Filter by bartender for non-admin users
+    if (!isAdmin && currentUser) {
+      txs = txs.filter(tx => tx.bartender === currentUser.name);
+    }
+
+    setTransactions(txs);
   }
 
   useEffect(() => {
@@ -81,7 +88,14 @@ function ReportsTab() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Reports</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
+        {!isAdmin && (
+          <div className="text-sm text-gray-600 bg-blue-50 px-4 py-2 rounded-lg">
+            Showing your transactions only
+          </div>
+        )}
+      </div>
 
       {/* Report Type Selection */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">

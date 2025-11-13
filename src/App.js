@@ -30,7 +30,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <Router basename="/Sem-bar-">
       <Routes>
         <Route
           path="/login"
